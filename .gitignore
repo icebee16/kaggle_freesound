@@ -1,0 +1,40 @@
+# config
+.slack_token
+*.tmp
+
+# data
+data/externel/*
+data/features/*
+data/model/*
+data/oof/*
+data/submit/*
+data/subset/*
+data/validations/*
+*.npz
+
+# features & src
+__pycache__
+
+# importance
+
+# input
+input/*
+
+# log
+
+# notebook
+.*.ipynb
+.ipynb_checkpoints
+
+# trash
+.DS_Store
+tmp/*
+
+# venv
+.venv/*
+
+#version
+.python-version
+
+#  gitkeep
+!.gitkeep
