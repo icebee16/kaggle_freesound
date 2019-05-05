@@ -1,0 +1,9 @@
+[INFO] 2019-05-05 10:38:01,828 >> 	[Start] main function
+[INFO] 2019-05-05 10:38:01,828 >> 	test
+[INFO] 2019-05-05 10:38:01,875 >> 	[Finish] main function: [elapsed_time] 00:00:00
+[INFO] 2019-05-05 10:42:17,796 >> 	[Start] main function
+[INFO] 2019-05-05 10:42:17,796 >> 	test
+[INFO] 2019-05-05 10:42:17,797 >> 	[Finish] main function: [elapsed_time] 00:00:00
+[INFO] 2019-05-05 10:42:48,884 >> 	[Start] main function
+[INFO] 2019-05-05 10:42:48,884 >> 	test
+[INFO] 2019-05-05 10:42:48,885 >> 	[Finish] main function: [elapsed_time] 00:00:00
