@@ -13,9 +13,11 @@ from logging import getLogger, Formatter, FileHandler, StreamHandler, INFO, DEBU
 from pathlib import Path
 from psutil import cpu_count
 from functools import wraps, partial
+from tqdm import tqdm
 
 import numpy as np
 import pandas as pd
+from numba import jit
 
 import librosa
 from PIL import Image
@@ -34,14 +36,15 @@ from torchvision.transforms import transforms
 # kaggleのkernelで実行する場合は以下
 # IS_KERNEL = True
 IS_KERNEL = False
-VERSION = os.path.basename(__file__)[0:4]
-ROOT_PATH = Path(__file__).parent if IS_KERNEL else Path(__file__).absolute().parents[1]
+VERSION = "0000" if IS_KERNEL else os.path.basename(__file__)[0:4]
+ROOT_PATH = Path("..") if IS_KERNEL else Path(__file__).parents[1]
 DataLoader = partial(DataLoader, nom_workers=cpu_count())
 SEED = 1116
 
 # 基礎数値他
 SAMPLING_RATE = 44100  # 44.1[kHz]
 SAMPLE_DURATION = 2  # 2[sec]
+N_MEL = 128  # spectrogram y axis size
 
 
 # =============== #
@@ -75,6 +78,34 @@ def stop_watch(*dargs, **dkargs):
 #  preprocessing section  #
 # ======================= #
 # ref : https://www.kaggle.com/daisukelab/creating-fat2019-preprocessed-data
+# >> data select section
+@stop_watch("select train data")
+def select_train_data():
+    input_dir = ROOT_PATH / "input"
+    tag_list = pd.read_csv(input_dir / "sample_submission.csv").columns[1:].to_list()  # 80 tag list
+
+    # train curated
+    train_curated_df = pd.read_csv(input_dir / "train_curated.csv")
+    train_curated_df["fpath"] = str(input_dir.absolute()) + "/train_curated/" + train_curated_df["fname"]
+
+    # train noisy
+    train_noisy_df = pd.read_csv(input_dir / "train_noisy.csv")
+    single_tag_train_noisy_df = train_noisy_df[~train_noisy_df["labels"].str.contains(",")]
+    train_noisy_df = None
+    for tag in tag_list:  # 80 tags
+        temp_df = single_tag_train_noisy_df.query("labels == '{}'".format(tag)).iloc[:50, :]
+        if train_noisy_df is None:
+            train_noisy_df = temp_df
+        else:
+            train_noisy_df = pd.concat([train_noisy_df, temp_df])
+    train_noisy_df["fpath"] = str(input_dir.absolute()) + "/train_noisy/" + train_noisy_df["fname"]
+
+    train_df = pd.concat([train_curated_df, train_noisy_df])[["fpath", "labels"]]
+    return train_df
+# << data select section
+
+
+# >> audio convert section
 def read_audio(wav_path):
     y, sr = librosa.load(wav_path, sr=SAMPLING_RATE)
 
@@ -96,11 +127,11 @@ def audio_to_melspectrogram(audio, sr):
     spectrogram = librosa.feature.melspectrogram(
         audio,
         sr=sr,
-        n_mels=128,  # https://librosa.github.io/librosa/generated/librosa.filters.mel.html#librosa.filters.mel
+        n_mels=N_MEL,  # https://librosa.github.io/librosa/generated/librosa.filters.mel.html#librosa.filters.mel
         hop_length=347 * SAMPLE_DURATION,  # to make time steps 128? 恐らくstftのロジックを理解すれば行ける
-        n_fft=128 * 20,  # n_mels * 20
-        f_min=20,  # Filterbank lowest frequency, Audible range 20[Hz]
-        f_max=sr / 2  # Nyquist frequency
+        n_fft=N_MEL * 20,  # n_mels * 20
+        fmin=20,  # Filterbank lowest frequency, Audible range 20[Hz]
+        fmax=sr / 2  # Nyquist frequency
     )
     spectrogram = librosa.power_to_db(spectrogram)
     spectrogram = spectrogram.astype(np.float32)
@@ -121,6 +152,45 @@ def mono_to_color(mono):
         color = np.zeros_like(x_std, dtype=np.uint8)
 
     return color
+# << audio convert section
+
+
+# >> dataset section(WIP)
+def df_to_labeldata(df):
+    """
+    df : columns=["fpath", "labels"]
+    """
+    @jit
+    def calc(arr):
+        for idx in tqdm(range(len(arr))):
+            y, sr = read_audio(arr[idx, 0])
+            spec_mono = audio_to_melspectrogram(y, sr)
+            spec_color = mono_to_color(spec_mono)
+    calc(df.values)
+"""
+    for idx in tqdm(range(len(df))):
+        y, sr = read_audio(df["fpath"].values[idx])
+        spec_mono = audio_to_melspectrogram(y, sr)
+        spec_color = mono_to_color(spec_mono)
+"""
+
+
+class TrainDataset(Dataset):
+    """
+    train_df :columns=["fpath", "labels"]
+    """
+    def __init__(self, train_df, transforms):
+        super().__init__()
+        self.transforms = transforms
+        melspectrograms = []
+        labels = []
+
+    def __len__():
+        pass
+
+    def __getitem__():
+        pass
+# << dataset section
 
 
 # ================ #
@@ -146,17 +216,17 @@ def create_logger():
 
     # file output
     if not IS_KERNEL:
-        LOG_DIR = ROOT_PATH / "log"
-        LOG_DIR.mkdir(exist_ok=True, parents=True)
+        log_dir = ROOT_PATH / "log"
+        log_dir.mkdir(exist_ok=True, parents=True)
 
-        _logfile = LOG_DIR / "{}.log".format(VERSION)
+        _logfile = log_dir / "{}.log".format(VERSION)
         _logfile.touch()
         fh = FileHandler(_logfile)
         fh.setLevel(DEBUG)
         fh.setFormatter(fmt)
         _logger.addHandler(fh)
 
-        _torch_logfile = LOG_DIR / "{}_torch.log".format(VERSION)
+        _torch_logfile = log_dir / "{}_torch.log".format(VERSION)
         _torch_logfile.touch()
         torch_fh = FileHandler(_torch_logfile)
         torch_fh.setLevel(DEBUG)
@@ -186,10 +256,11 @@ def jobs_manage(n_jobs=cpu_count()):
 # ============== #
 @stop_watch("main function")
 def main():
-    get_logger().info("test")
     # presetting
     seed_everything()
     jobs_manage()
+    train_df = select_train_data()
+    df_to_labeldata(train_df)
 
 
 if __name__ == "__main__":
@@ -197,5 +268,6 @@ if __name__ == "__main__":
     create_logger()
     try:
         main()
-    except Exception:
-        pass
+    except Exception as e:
+        print()
+        get_logger().error("Exception Occured. \n>> \n {}".format(e))
