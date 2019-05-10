@@ -610,7 +610,7 @@ def main():
         transforms.RandomHorizontalFlip(),
         transforms.ToTensor()
     ])
-    test_preds = TestDataset(test_transforms)
+    test_preds = predict_model(test_transforms)
 
     test_df = pd.read_csv(ROOT_PATH / "input" / "sample_submission.csv")
     test_df.iloc[:, 1:] = test_preds.values
