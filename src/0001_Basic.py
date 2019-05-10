@@ -6,7 +6,6 @@
 
 import gc
 import os
-import sys
 import random
 import time
 from logging import getLogger, Formatter, FileHandler, StreamHandler, INFO, DEBUG
@@ -157,18 +156,29 @@ def mono_to_color(mono):
 # << audio convert section
 
 
-# >> dataset section(WIP)
+# >> label convert section
+@jit("i1[:](i1[:])")
+def label_to_array(label):
+    tag_list = pd.read_csv(ROOT_PATH / "input" / "sample_submission.csv").columns[1:].to_list()  # 80 tag list
+    array = np.zeros(len(tag_list)).astype(int)
+    for tag in label.split(","):
+        array[tag_list.index(tag)] = 1
+    return array
+# << label convert section
+
+
+# >> dataset section
+@stop_watch("load train image")
 def df_to_labeldata(fpath_arr, labels):
     """
     fpath   : arr
     labels  : arr
     """
-    tag_list = pd.read_csv(ROOT_PATH / "input" / "sample_submission.csv").columns[1:].to_list()  # 80 tag list
 
     spec_list = []
     label_list = []
 
-    @jit(parallel=True)
+    @jit
     def calc(fpath_arr, labels):
         for idx in tqdm(range(len(fpath_arr))):
             # melspectrogram
@@ -178,10 +188,7 @@ def df_to_labeldata(fpath_arr, labels):
             spec_list.append(spec_color)
 
             # labels
-            label = np.zeros(len(tag_list)).astype(int)
-            for tag in labels[idx].split(","):
-                label[tag_list.index(tag)] = 1
-            label_list.append(label)
+            label_list.append(label_to_array(labels[idx]))
 
     calc(fpath_arr, labels)
 
@@ -332,6 +339,7 @@ class Classifier(nn.Module):
 #  metric section  #
 # ================ #
 # from official code https://colab.research.google.com/drive/1AgPdhSp7ttY18O3fEoHOQKlt_3HJDLi8#scrollTo=cRCaCIb9oguU
+@jit
 def _one_sample_positive_class_precisions(scores, truth):
     """Calculate precisions for each true class for a single sample.
 
@@ -364,6 +372,7 @@ def _one_sample_positive_class_precisions(scores, truth):
     return pos_class_indices, precision_at_hits
 
 
+@jit
 def calculate_per_class_lwlrap(truth, scores):
     """Calculate label-weighted label-ranking average precision.
 
@@ -406,8 +415,9 @@ def calculate_per_class_lwlrap(truth, scores):
 # =============== #
 #  train section  #
 # =============== #
+@stop_watch("train section")
 def train_model(train_df, train_transforms):
-    num_epochs = 80
+    num_epochs = 20
     batch_size = 64
     test_batch_size = 256
     lr = 3e-3
@@ -417,11 +427,9 @@ def train_model(train_df, train_transforms):
     num_classes = len(pd.read_csv(ROOT_PATH / "input" / "sample_submission.csv").columns[1:])
 
     trn_x, val_x, trn_y, val_y = train_test_split(train_df["fpath"].values, train_df["labels"].values, test_size=0.2, random_state=SEED)
-    print(val_y) # (WIP)
 
     train_dataset = TrainDataset(trn_x, trn_y, train_transforms)
     valid_dataset = TrainDataset(val_x, val_y, train_transforms)
-    print(val_y)
 
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
     valid_loader = DataLoader(valid_dataset, batch_size=test_batch_size, shuffle=False)
@@ -456,7 +464,6 @@ def train_model(train_df, train_transforms):
         model.eval()
         valid_preds = np.zeros((len(val_x), num_classes))
         avg_val_loss = 0.
-        print(val_y)
 
         for i, (x_batch, y_batch) in enumerate(valid_loader):
             preds = model(x_batch.cuda()).detach()
@@ -467,8 +474,8 @@ def train_model(train_df, train_transforms):
 
             avg_val_loss += loss.item() / len(valid_loader)
 
-        print(val_y)
-        score, weight = calculate_per_class_lwlrap(val_y, valid_preds)
+        val_labels = np.array([label_to_array(l) for l in val_y.tolist()])
+        score, weight = calculate_per_class_lwlrap(val_labels, valid_preds)
         lwlrap = (score * weight).sum()
 
         scheduler.step()
@@ -476,17 +483,51 @@ def train_model(train_df, train_transforms):
         elapsed = time.time() - start
         get_logger(is_torch=True).debug("{}\t{}\t{}\t{}".format(avg_loss, avg_val_loss, lwlrap, elapsed))
         if (epoch + 1) % 5 == 0:
-            mb.write(f"Epoch {epoch + 1} - avg_train_loss: {avg_loss:.4f}\tavg_val_loss: {avg_val_loss:.4f}\tval_lwlrap: {lwlrap:.6f}\ttime: {elapsed:.0f}s")
+            mb.write(f"Epoch {epoch + 1} -\tavg_train_loss: {avg_loss:.4f}\tavg_val_loss: {avg_val_loss:.4f}\tval_lwlrap: {lwlrap:.6f}\ttime: {elapsed:.0f}s")
 
         if lwlrap > best_lwlrap:
             best_epoch = epoch + 1
             best_lwlrap = lwlrap
-            torch.save(model.state_dict(), (ROOT_PATH / "model" / "{}_weight_best.pt".format(VERSION)).resolve())
+            model_path = "weight_best.pt" if IS_KERNEL else (ROOT_PATH / "model" / "{}_weight_best.pt".format(VERSION)).resolve()
+            torch.save(model.state_dict(), model_path)
 
-        return {
-            "best_epoch": best_epoch,
-            "best_lwlrap": best_lwlrap
-        }
+    return {
+        "best_epoch": best_epoch,
+        "best_lwlrap": best_lwlrap
+    }
+
+
+# ================= #
+#  predict section  #
+# ================= #
+def predict_model(test_transforms, *, tta=5):
+    model_path = "weight_best.pt" if IS_KERNEL else (ROOT_PATH / "model" / "{}_weight_best.pt".format(VERSION)).resolve()
+    batch_size = 256
+
+    num_classes = len(pd.read_csv(ROOT_PATH / "input" / "sample_submission.csv").columns[1:])
+
+    test_dataset = TestDataset(test_transforms, tta)
+    test_loader = Dataset(test_dataset, batch_size=batch_size, shuffle=False)
+
+    model = Classifier(num_classes=num_classes)
+    model.load_state_dict(model_path)
+    model.cuda()
+    model.eval()
+
+    all_outputs, all_fnames = [], []
+
+    pb = progress_bar(test_loader)
+    for images, fnames in pb:
+        preds = torch.sigmoid(model(images.cuda()).detach())
+        all_outputs.append(preds.cpu().numpy())
+        all_fnames.extend(fnames)
+
+    test_preds = pd.DataFrame(data=np.concatenate(all_outputs),
+                              index=all_fnames,
+                              columns=map(str, range(num_classes)))
+    test_preds = test_preds.groupby(level=0).mean()
+
+    return test_preds
 
 
 # ================ #
@@ -527,7 +568,7 @@ def create_logger():
         _torch_logfile.touch()
         torch_fh = FileHandler(_torch_logfile, mode="w")
         torch_fh.setLevel(DEBUG)
-        torch_fh.setFormatter("%(message)s")
+        torch_fh.setFormatter(Formatter("%(message)s"))
         _torch_logger.addHandler(torch_fh)
 
 
@@ -557,23 +598,26 @@ def main():
     seed_everything()
     jobs_manage()
 
-    train_df = select_train_data().iloc[:1000, :]  # WIP
+    train_df = select_train_data()
     train_transforms = transforms.Compose([
         transforms.RandomHorizontalFlip(),
         transforms.ToTensor()
     ])
 
     result = train_model(train_df, train_transforms)
+    get_logger().info("best_epoch : {},\tbest_lwlrap : {}".format(result["best_epoch"], result["best_lwlrap"]))
 
-    print(result)
-
-    """
     test_transforms = transforms.Compose([
         transforms.RandomHorizontalFlip(),
         transforms.ToTensor()
     ])
-    test_ds = TestDataset(test_transforms)
-    """
+    test_preds = TestDataset(test_transforms)
+
+    test_df = pd.read_csv(ROOT_PATH / "input" / "sample_submission.csv")
+    test_df.iloc[:, 1:] = test_preds.values
+
+    submission_path = "submission.csv" if IS_KERNEL else (ROOT_PATH / "data" / "submission" / "{}.csv".format(VERSION)).resolve()
+    test_df.to_csv(submission_path, index=False)
 
 
 if __name__ == "__main__":
