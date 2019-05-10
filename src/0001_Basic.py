@@ -80,10 +80,9 @@ def stop_watch(*dargs, **dkargs):
 # ======================= #
 # ref : https://www.kaggle.com/daisukelab/creating-fat2019-preprocessed-data
 # >> data select section
-@stop_watch("select train data")
 def select_train_data():
     input_dir = ROOT_PATH / "input"
-    tag_list = pd.read_csv(input_dir / "sample_submission.csv").columns[1:].to_list()  # 80 tag list
+    tag_list = pd.read_csv(input_dir / "sample_submission.csv").columns[1:].tolist()  # 80 tag list
 
     # train curated
     train_curated_df = pd.read_csv(input_dir / "train_curated.csv")
@@ -159,7 +158,7 @@ def mono_to_color(mono):
 # >> label convert section
 @jit("i1[:](i1[:])")
 def label_to_array(label):
-    tag_list = pd.read_csv(ROOT_PATH / "input" / "sample_submission.csv").columns[1:].to_list()  # 80 tag list
+    tag_list = pd.read_csv(ROOT_PATH / "input" / "sample_submission.csv").columns[1:].tolist()  # 80 tag list
     array = np.zeros(len(tag_list)).astype(int)
     for tag in label.split(","):
         array[tag_list.index(tag)] = 1
@@ -417,7 +416,7 @@ def calculate_per_class_lwlrap(truth, scores):
 # =============== #
 @stop_watch("train section")
 def train_model(train_df, train_transforms):
-    num_epochs = 20
+    num_epochs = 80
     batch_size = 64
     test_batch_size = 256
     lr = 3e-3
@@ -598,7 +597,7 @@ def main():
     seed_everything()
     jobs_manage()
 
-    train_df = select_train_data()
+    train_df = select_train_data()#.iloc[:1000, :]
     train_transforms = transforms.Compose([
         transforms.RandomHorizontalFlip(),
         transforms.ToTensor()
