@@ -506,7 +506,7 @@ def predict_model(test_transforms, *, tta=5):
     num_classes = len(pd.read_csv(ROOT_PATH / "input" / "sample_submission.csv").columns[1:])
 
     test_dataset = TestDataset(test_transforms, tta)
-    test_loader = Dataset(test_dataset, batch_size=batch_size, shuffle=False)
+    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
 
     model = Classifier(num_classes=num_classes)
     model.load_state_dict(model_path)
@@ -597,7 +597,7 @@ def main():
     seed_everything()
     jobs_manage()
 
-    train_df = select_train_data()#.iloc[:1000, :]
+    train_df = select_train_data().iloc[:8000, :]
     train_transforms = transforms.Compose([
         transforms.RandomHorizontalFlip(),
         transforms.ToTensor()
