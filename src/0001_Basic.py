@@ -597,7 +597,7 @@ def main():
     seed_everything()
     jobs_manage()
 
-    train_df = select_train_data().iloc[:8000, :]
+    train_df = select_train_data()
     train_transforms = transforms.Compose([
         transforms.RandomHorizontalFlip(),
         transforms.ToTensor()
