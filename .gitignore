@@ -8,6 +8,7 @@ data/features/*
 data/model/*
 data/oof/*
 data/submit/*
+data/submission/*
 data/subset/*
 data/validations/*
 *.npz
