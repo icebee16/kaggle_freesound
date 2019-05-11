@@ -6,4 +6,4 @@
 [INFO] 2019-05-11 11:10:41,259 >> 	[Finish] load train image: [elapsed_time] 00:02:40
 [INFO] 2019-05-11 12:16:04,005 >> 	[Finish] train section: [elapsed_time] 01:23:01
 [INFO] 2019-05-11 12:16:04,006 >> 	best_epoch : 73,	best_lwlrap : 0.6160403570405432
-[INFO] 2019-05-11 12:17:59,390 >> 	[Finish] main function: [elapsed_time] 01:24:57
+[INFO] 2019-05-11 12:17:59,390 >> 	[Finish] main function: [elapsed_time] 01:24:57 
