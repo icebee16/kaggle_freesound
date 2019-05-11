@@ -509,7 +509,7 @@ def predict_model(test_transforms, *, tta=5):
     test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
 
     model = Classifier(num_classes=num_classes)
-    model.load_state_dict(model_path)
+    model.load_state_dict(torch.load(model_path))
     model.cuda()
     model.eval()
 
