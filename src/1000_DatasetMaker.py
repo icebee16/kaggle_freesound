@@ -21,9 +21,6 @@ from numba import jit
 import librosa
 from PIL import Image
 
-from torch.utils.data import Dataset, DataLoader
-from torchvision.transforms import transforms
-
 # ================= #
 #  paramas section  #
 # ================= #
@@ -32,7 +29,6 @@ from torchvision.transforms import transforms
 IS_KERNEL = False
 VERSION = "0000" if IS_KERNEL else os.path.basename(__file__)[0:4]
 ROOT_PATH = Path("..") if IS_KERNEL else Path(__file__).parents[1]
-DataLoader = partial(DataLoader, num_workers=cpu_count())
 SEED = 1116
 
 # 基礎数値他
@@ -102,12 +98,15 @@ def path_loading():
     test_df = test_df[["audio_path", "image_path"]]
 
     df = pd.concat([train_curated_df, train_noisy_df, test_df])[["audio_path", "image_path"]]
+    df.reset_index(drop=True, inplace=True)
     return df
 # << data select section
 
 
 # >> audio convert section
 def read_audio(wav_path):
+    print(wav_path)
+    print(Path(wav_path).exists())
     y, sr = librosa.load(wav_path, sr=SAMPLING_RATE)
 
     # trim silence : https://librosa.github.io/librosa/generated/librosa.effects.trim.html
