@@ -105,8 +105,6 @@ def path_loading():
 
 # >> audio convert section
 def read_audio(wav_path):
-    print(wav_path)
-    print(Path(wav_path).exists())
     y, sr = librosa.load(wav_path, sr=SAMPLING_RATE)
 
     # trim silence : https://librosa.github.io/librosa/generated/librosa.effects.trim.html
