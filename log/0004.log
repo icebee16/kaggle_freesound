@@ -1,0 +1,10 @@
+[INFO] 2019-05-11 18:00:34,823 >> 	[Start] main function
+[INFO] 2019-05-11 18:00:35,143 >> 	[Start] train section
+[INFO] 2019-05-11 18:00:35,157 >> 	[Start] load train image
+[INFO] 2019-05-11 18:14:27,884 >> 	[Finish] load train image: [elapsed_time] 00:13:52
+[INFO] 2019-05-11 18:14:27,884 >> 	[Start] load train image
+[INFO] 2019-05-11 18:18:15,802 >> 	[Finish] load train image: [elapsed_time] 00:03:47
+[INFO] 2019-05-11 19:19:51,428 >> 	train time mean: 23.545080101490026	valid time mean: 22.600435534119615
+[INFO] 2019-05-11 19:19:51,472 >> 	[Finish] train section: [elapsed_time] 01:19:16
+[INFO] 2019-05-11 19:19:51,472 >> 	best_epoch : 72,	best_lwlrap : 0.6151602658545949
+[INFO] 2019-05-11 19:21:45,655 >> 	[Finish] main function: [elapsed_time] 01:21:10
