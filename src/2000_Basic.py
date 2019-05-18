@@ -160,7 +160,6 @@ def audio_to_melspectrogram(audio, sr):
     return spectrogram
 
 
-@profile
 def mono_to_color(mono):
     # stack X as [mono, mono, mono]
     x = np.stack([mono, mono, mono], axis=-1)
