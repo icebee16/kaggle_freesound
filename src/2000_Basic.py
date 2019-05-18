@@ -45,7 +45,8 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 SEED = 1129
 SAMPLING_RATE = 44100  # 44.1[kHz]
 SAMPLE_DURATION = 2  # 2[sec]
-N_MEL = 128  # spectrogram y axis size
+HOP_LENGTH = 345
+N_MEL = 256  # spectrogram y axis size
 
 # Directory
 DEBUG_MODE = True
@@ -57,7 +58,7 @@ SAMPLE_SUBMISSION = HEAD + "sample_submission"
 
 # Training params
 num_epochs = 5
-train_batch_size = 64
+train_batch_size = 128
 valid_batch_size = 256
 test_batch_size = 256
 optimizer_params = {
@@ -149,11 +150,11 @@ def audio_to_melspectrogram(audio, sr):
     spectrogram = librosa.feature.melspectrogram(
         audio,
         sr=sr,
-        n_mels=N_MEL,  # https://librosa.github.io/librosa/generated/librosa.filters.mel.html#librosa.filters.mel
-        hop_length=347 * SAMPLE_DURATION,  # to make time steps 128? 恐らくstftのロジックを理解すれば行ける
-        n_fft=N_MEL * 20,  # n_mels * 20
-        fmin=20,  # Filterbank lowest frequency, Audible range 20[Hz]
-        fmax=sr / 2  # Nyquist frequency
+        n_mels=N_MEL,           # https://librosa.github.io/librosa/generated/librosa.filters.mel.html#librosa.filters.mel
+        hop_length=HOP_LENGTH,  # to make time steps 128? 恐らくstftのロジックを理解すれば行ける
+        n_fft=N_MEL * 20,       # n_mels * 20
+        fmin=20,                # Filterbank lowest frequency, Audible range 20[Hz]
+        fmax=sr / 2             # Nyquist frequency
     )
     spectrogram = librosa.power_to_db(spectrogram)
     spectrogram = spectrogram.astype(np.float32)
@@ -232,6 +233,7 @@ class TrainDataset(Dataset):
         # crop
         image = Image.fromarray(self.melspectrograms[idx], mode="RGB")
         time_dim, base_dim = image.size
+        
         crop = random.randint(0, time_dim - base_dim)
         image = image.crop([crop, 0, crop + base_dim, base_dim])
         image = self.transforms(image).div_(255)
