@@ -13,6 +13,9 @@ data/subset/*
 data/validations/*
 *.npz
 
+# image
+image/*
+
 # features & src
 __pycache__
 
