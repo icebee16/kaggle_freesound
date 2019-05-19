@@ -47,7 +47,7 @@ SAMPLING_RATE = 44100  # 44.1[kHz]
 SAMPLE_DURATION = 2  # 2[sec]
 HOP_LENGTH = 345
 N_MEL = 128  # spectrogram y axis size
-SPEC_AUGMENTATION_RATE = 2
+SPEC_AUGMENTATION_RATE = 3
 
 # SPEC_AUGMENTATION
 NUM_MASK = 2
@@ -159,6 +159,7 @@ def spec_augment(spec: np.ndarray, num_mask=2,
     Reference: https://www.kaggle.com/davids1992/specaugment-quick-implementation
     """
     spec = spec.copy()
+
     for i in range(num_mask):
         all_frames_num, all_freqs_num = spec.shape
         freq_percentage = random.uniform(0.0, freq_masking_max_percentage)
