@@ -81,20 +81,20 @@ def path_loading():
     # train curated
     train_curated_df = pd.read_csv(input_dir / "train_curated.csv")
     train_curated_df["audio_path"] = str(input_dir.absolute()) + "/train_curated/" + train_curated_df["fname"]
-    train_curated_df["image_path"] = str(save_dir.absolute()) + "/train_curated/" + train_curated_df["fname"][:-4] + ".png"
+    train_curated_df["image_path"] = str(save_dir.absolute()) + "/train_curated/" + train_curated_df["fname"].str[:-4] + ".png"
     train_curated_df = train_curated_df[["audio_path", "image_path"]]
 
     # train noisy
     train_noisy_df = pd.read_csv(input_dir / "train_noisy.csv")
     train_noisy_df["audio_path"] = str(input_dir.absolute()) + "/train_noisy/" + train_noisy_df["fname"]
-    train_noisy_df["image_path"] = str(save_dir.absolute()) + "/train_noisy/" + train_noisy_df["fname"][:-4] + ".png"
+    train_noisy_df["image_path"] = str(save_dir.absolute()) + "/train_noisy/" + train_noisy_df["fname"].str[:-4] + ".png"
     train_noisy_df = train_noisy_df[["audio_path", "image_path"]]
 
     # test
     test_fname = [p.name for p in list((input_dir / "test").glob("*.wav"))]
     test_df = pd.DataFrame(data=list(test_fname), columns=["fname"])
     test_df["audio_path"] = str(input_dir.absolute()) + "/test/" + test_df["fname"]
-    test_df["image_path"] = str(save_dir.absolute()) + "/test/" + test_df["fname"][:-4] + ".png"
+    test_df["image_path"] = str(save_dir.absolute()) + "/test/" + test_df["fname"].str[:-4] + ".png"
     test_df = test_df[["audio_path", "image_path"]]
 
     df = pd.concat([train_curated_df, train_noisy_df, test_df])[["audio_path", "image_path"]]
