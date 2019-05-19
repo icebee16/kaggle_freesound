@@ -37,6 +37,9 @@ model/*
 .DS_Store
 tmp/*
 
+# profiling
+*.lprof
+
 # venv
 .venv/*
 
