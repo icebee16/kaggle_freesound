@@ -47,13 +47,6 @@ SAMPLING_RATE = 44100  # 44.1[kHz]
 SAMPLE_DURATION = 2  # 2[sec]
 HOP_LENGTH = 345
 N_MEL = 128  # spectrogram y axis size
-SPEC_AUGMENTATION_RATE = 3
-
-# SPEC_AUGMENTATION
-NUM_MASK = 2
-FREQ_MASKING_MAX_PERCENTAGE = 0.15
-TIME_MASKING_MAX_PERCENTAGE = 0.30
-
 
 # Directory
 DEBUG_MODE = True
@@ -132,7 +125,7 @@ def select_train_data():
 
     train_df = pd.concat([train_curated_df, train_noisy_df])[["fpath", "labels"]]
     return train_df
-    # << data select section
+# << data select section
 
 
 # >> audio convert section
@@ -151,32 +144,6 @@ def read_audio(wav_path):
         y = np.pad(y, (offset, sample_size - len(y) - offset), "constant")
 
     return y, sr  # np.ndarrya, shape=(sample_size,), SAMPLING_RATE
-
-
-def spec_augment(spec: np.ndarray, num_mask=2,
-                 freq_masking_max_percentage=0.15, time_masking_max_percentage=0.3):
-    """Simple augmentation using cross masks
-    Reference: https://www.kaggle.com/davids1992/specaugment-quick-implementation
-    """
-    spec = spec.copy()
-
-    for i in range(num_mask):
-        all_frames_num, all_freqs_num = spec.shape
-        freq_percentage = random.uniform(0.0, freq_masking_max_percentage)
-
-        num_freqs_to_mask = int(freq_percentage * all_freqs_num)
-        f0 = np.random.uniform(low=0.0, high=all_freqs_num - num_freqs_to_mask)
-        f0 = int(f0)
-        spec[:, f0:f0 + num_freqs_to_mask] = 0
-
-        time_percentage = random.uniform(0.0, time_masking_max_percentage)
-
-        num_frames_to_mask = int(time_percentage * all_frames_num)
-        t0 = np.random.uniform(low=0.0, high=all_frames_num - num_frames_to_mask)
-        t0 = int(t0)
-        spec[t0:t0 + num_frames_to_mask, :] = 0
-
-    return spec
 
 
 def audio_to_melspectrogram(audio, sr):
@@ -236,15 +203,9 @@ def df_to_labeldata(fpath_arr, labels):
     @jit
     def calc(fpath_arr, labels):
         for idx in tqdm(range(len(fpath_arr))):
-            modulo_idx = int(idx / SPEC_AUGMENTATION_RATE)
-            mod = int(idx % SPEC_AUGMENTATION_RATE)
             # melspectrogram
-            y, sr = read_audio(fpath_arr[modulo_idx])
+            y, sr = read_audio(fpath_arr[idx])
             spec_mono = audio_to_melspectrogram(y, sr)
-            if mod != 0:
-                spec_mono = spec_augment(spec_mono, num_mask=NUM_MASK,
-                                         freq_masking_max_percentage=FREQ_MASKING_MAX_PERCENTAGE,
-                                         time_masking_max_percentage=TIME_MASKING_MAX_PERCENTAGE)
             spec_color = mono_to_color(spec_mono)
             spec_list.append(spec_color)
 
@@ -483,18 +444,7 @@ def train_model(train_df, train_transforms):
 
     trn_x, val_x, trn_y, val_y = train_test_split(train_df["fpath"].values, train_df["labels"].values, test_size=0.2, random_state=SEED)
 
-    trn_x = pd.DataFrame(trn_x, columns=["fpath"])
-    trn_y = pd.DataFrame(trn_y, columns=["labels"])
-    aug_trn_x = trn_x
-    aug_trn_y = trn_y
-    for i in range(SPEC_AUGMENTATION_RATE):
-        aug_trn_x = pd.concat([aug_trn_x, trn_x])
-        aug_trn_y = pd.concat([aug_trn_y, trn_y])
-
-    aug_trn_x.sort_index(ascending=False, inplace=True)
-    aug_trn_y.sort_index(ascending=False, inplace=True)
-
-    train_dataset = TrainDataset(aug_trn_x["fpath"].values.tolist(), aug_trn_y["labels"].values.tolist(), train_transforms)
+    train_dataset = TrainDataset(trn_x, trn_y, train_transforms)
     valid_dataset = TrainDataset(val_x, val_y, train_transforms)
 
     train_loader = DataLoader(train_dataset, batch_size=train_batch_size, shuffle=True)
@@ -665,6 +615,7 @@ def main():
 
     train_df = select_train_data()
     train_transforms = transforms.Compose([
+        transforms.ColorJitter(),
         transforms.ToTensor()
     ])
 
