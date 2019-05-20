@@ -155,7 +155,7 @@ class TrainDataset(Dataset):
         (mel_dim, time_dim, channel_dim) = color_spec.shape
         color_spec = np.pad(color_spec, [(0, 0), (mel_dim, mel_dim), (0, 0)], "constant")
 
-        # rondom peak crop
+        # random peak crop
         peak_timing = color_spec.sum(axis=0).sum(axis=1).argmax()
         peak_timing = max([peak_timing, mel_dim])
 
