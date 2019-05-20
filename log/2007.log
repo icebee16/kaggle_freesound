@@ -1,6 +1,3 @@
-[INFO] 2019-05-20 01:19:31,253 >> 	[Start] main function
-[INFO] 2019-05-20 01:19:31,395 >> 	[Start] train section
-[INFO] 2019-05-20 01:19:31,401 >> 	[Start] load train image
-[INFO] 2019-05-20 01:19:33,784 >> 	[Finish] load train image: [elapsed_time] 00:00:02
-[INFO] 2019-05-20 01:19:33,784 >> 	[Start] load train image
-[INFO] 2019-05-20 01:19:34,093 >> 	[Finish] load train image: [elapsed_time] 00:00:00
+[INFO] 2019-05-20 22:31:34,597 >> 	[Start] main function
+[INFO] 2019-05-20 22:31:34,779 >> 	[Start] train section
+[INFO] 2019-05-20 22:31:34,788 >> 	[Start] load train image

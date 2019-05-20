@@ -12,7 +12,6 @@ from logging import getLogger, Formatter, FileHandler, StreamHandler, INFO, DEBU
 from pathlib import Path
 from psutil import cpu_count
 from functools import wraps, partial
-from tqdm import tqdm
 from fastprogress import master_bar, progress_bar
 
 import numpy as np
@@ -121,18 +120,20 @@ def select_train_data():
     train_curated_df["fpath"] = str(input_dir.absolute()) + "/" + CURATED_DIR + "/" + train_curated_df["fname"]
 
     # train noisy
-    train_noisy_df = pd.read_csv(input_dir / "{}.csv".format(NOISY_DIR))
-    single_tag_train_noisy_df = train_noisy_df[~train_noisy_df["labels"].str.contains(",")]
-    train_noisy_df = None
-    for tag in tag_list:  # 80 tags
-        temp_df = single_tag_train_noisy_df.query("labels == '{}'".format(tag)).iloc[:50, :]
-        if train_noisy_df is None:
-            train_noisy_df = temp_df
-        else:
-            train_noisy_df = pd.concat([train_noisy_df, temp_df])
-    train_noisy_df["fpath"] = str(input_dir.absolute()) + "/" + NOISY_DIR + "/" + train_noisy_df["fname"]
+    train_df = train_curated_df
+    if IS_KERNEL is False:
+        train_noisy_df = pd.read_csv(input_dir / "{}.csv".format(NOISY_DIR))
+        single_tag_train_noisy_df = train_noisy_df[~train_noisy_df["labels"].str.contains(",")]
+        train_noisy_df = None
+        for tag in tag_list:  # 80 tags
+            temp_df = single_tag_train_noisy_df.query("labels == '{}'".format(tag)).iloc[:50, :]
+            if train_noisy_df is None:
+                train_noisy_df = temp_df
+            else:
+                train_noisy_df = pd.concat([train_noisy_df, temp_df])
+        train_noisy_df["fpath"] = str(input_dir.absolute()) + "/" + NOISY_DIR + "/" + train_noisy_df["fname"]
+        train_df = pd.concat([train_curated_df, train_noisy_df])[["fpath", "labels"]]
 
-    train_df = pd.concat([train_curated_df, train_noisy_df])[["fpath", "labels"]]
     return train_df
     # << data select section
 
@@ -239,7 +240,7 @@ def df_to_labeldata(fpath_arr, labels):
 
     @jit
     def calc(fpath_arr, labels):
-        for idx in tqdm(range(len(fpath_arr))):
+        for idx in range(len(fpath_arr)):
             modulo_idx = int(idx / SPEC_AUGMENTATION_RATE)
             mod = int(idx % SPEC_AUGMENTATION_RATE)
             # melspectrogram
@@ -254,7 +255,7 @@ def df_to_labeldata(fpath_arr, labels):
             spec_list.append(spec_color)
 
             # labels
-            label_list.append(label_to_array(labels[idx]))
+            label_list.append(label_to_array(labels[modulo_idx]))
 
     calc(fpath_arr, labels)
 
@@ -297,7 +298,7 @@ def load_testdata(fname):
 
     @jit
     def calc(fname_list):
-        for idx in tqdm(range(len(fname_list))):
+        for idx in range(len(fname_list)):
             # melspectrogram
             y, sr = read_audio(input_dir / TEST_DIR / fname_list[idx])
             spec_mono = audio_to_melspectrogram(y, sr)
