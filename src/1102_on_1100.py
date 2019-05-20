@@ -1,7 +1,8 @@
 # ==================================================================================
 # Baseline Model
-# date : 2019/05/19
-# reference: https://www.kaggle.com/peining/simple-cnn-classifier-with-pytorch
+# date : 2019/05/05
+# reference : https://www.kaggle.com/mhiro2/simple-2d-cnn-classifier-with-pytorch
+# comment : [change point] IMAGE_VERSION {1000 > 1002}
 # ==================================================================================
 
 import gc
@@ -12,15 +13,14 @@ from logging import getLogger, Formatter, FileHandler, StreamHandler, INFO, DEBU
 from pathlib import Path
 from psutil import cpu_count
 from functools import wraps, partial
+from tqdm import tqdm
 from fastprogress import master_bar, progress_bar
 
 import numpy as np
 import pandas as pd
 from numba import jit
 
-import librosa
 from PIL import Image
-from sklearn.model_selection import train_test_split
 
 import torch
 import torch.nn as nn
@@ -30,53 +30,23 @@ from torch.optim.lr_scheduler import CosineAnnealingLR
 from torch.utils.data import Dataset, DataLoader
 from torchvision.transforms import transforms
 
-from imgaug import augmenters as iaa
-
-
 # ================= #
 #  paramas section  #
 # ================= #
+# kaggleのkernelで実行する場合は以下
+# IS_KERNEL = True
 IS_KERNEL = False
 VERSION = "0000" if IS_KERNEL else os.path.basename(__file__)[0:4]
+IMAGE_VERSION = "1002"
+FOLD_NUM = 5
 ROOT_PATH = Path("..") if IS_KERNEL else Path(__file__).parents[1]
 DataLoader = partial(DataLoader, num_workers=cpu_count())
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+SEED = 1116
 
-# Const
-SEED = 1129
+# 基礎数値他
 SAMPLING_RATE = 44100  # 44.1[kHz]
 SAMPLE_DURATION = 2  # 2[sec]
-HOP_LENGTH = 345
 N_MEL = 128  # spectrogram y axis size
-SPEC_AUGMENTATION_RATE = 2
-
-# SPEC_AUGMENTATION
-NUM_MASK = 2
-FREQ_MASKING_MAX_PERCENTAGE = 0.15
-TIME_MASKING_MAX_PERCENTAGE = 0.30
-
-
-# Directory
-DEBUG_MODE = True
-HEAD = "debug_" if DEBUG_MODE else ""
-CURATED_DIR = HEAD + "train_curated"
-NOISY_DIR = HEAD + "train_noisy"
-TEST_DIR = HEAD + "test"
-SAMPLE_SUBMISSION = HEAD + "sample_submission"
-
-# Training params
-num_epochs = 5
-train_batch_size = 128
-valid_batch_size = 256
-test_batch_size = 256
-optimizer_params = {
-    "lr": 3e-3,
-    "amsgrad": False
-}
-scheduler_params = {
-    "eta_min": 1e-5,
-    "T_max": 10
-}
 
 
 # =============== #
@@ -112,111 +82,27 @@ def stop_watch(*dargs, **dkargs):
 # ref : https://www.kaggle.com/daisukelab/creating-fat2019-preprocessed-data
 # >> data select section
 def select_train_data():
-    input_dir = ROOT_PATH / "input"
-    tag_list = pd.read_csv(input_dir / "{}.csv".format(SAMPLE_SUBMISSION)).columns[1:].tolist()  # 80 tag list
+    fold_dir = ROOT_PATH / "data" / "fold"
+    img_dir = ROOT_PATH / "image" / IMAGE_VERSION
 
     # train curated
-    train_curated_df = pd.read_csv(input_dir / "{}.csv".format(CURATED_DIR))
-    train_curated_df["fpath"] = str(input_dir.absolute()) + "/" + CURATED_DIR + "/" + train_curated_df["fname"]
+    train_curated_df = pd.read_csv(fold_dir / "train_curated_sfk.csv")
+    train_curated_df = train_curated_df[["fname", "labels", "fold"]]
+    train_curated_df["fpath"] = str(img_dir.absolute()) + "/train_curated/" + train_curated_df["fname"].str[:-4] + ".png"
 
-    train_df = train_curated_df
     # train noisy
-    if IS_KERNEL is False:
-        train_noisy_df = pd.read_csv(input_dir / "{}.csv".format(NOISY_DIR))
-        single_tag_train_noisy_df = train_noisy_df[~train_noisy_df["labels"].str.contains(",")]
-        train_noisy_df = None
-        for tag in tag_list:  # 80 tags
-            temp_df = single_tag_train_noisy_df.query("labels == '{}'".format(tag)).iloc[:50, :]
-            if train_noisy_df is None:
-                train_noisy_df = temp_df
-            else:
-                train_noisy_df = pd.concat([train_noisy_df, temp_df])
-        train_noisy_df["fpath"] = str(input_dir.absolute()) + "/" + NOISY_DIR + "/" + train_noisy_df["fname"]
-        train_df = pd.concat([train_curated_df, train_noisy_df])[["fpath", "labels"]]
-    return train_df
-    # << data select section
 
+    # df concat
+    train_df = train_curated_df
 
-# >> audio convert section
-def read_audio(wav_path):
-    y, sr = librosa.load(wav_path, sr=SAMPLING_RATE)
-
-    # trim silence : https://librosa.github.io/librosa/generated/librosa.effects.trim.html
-    if 0 < len(y):
-        y, _ = librosa.effects.trim(y)
-
-    # padding short data
-    sample_size = SAMPLE_DURATION * SAMPLING_RATE
-    if len(y) < sample_size:
-        padding = sample_size - len(y)
-        offset = padding // 2
-        y = np.pad(y, (offset, sample_size - len(y) - offset), "constant")
-
-    return y, sr  # np.ndarrya, shape=(sample_size,), SAMPLING_RATE
-
-
-def spec_augment(spec: np.ndarray, num_mask=2,
-                 freq_masking_max_percentage=0.15, time_masking_max_percentage=0.3):
-    """Simple augmentation using cross masks
-    Reference: https://www.kaggle.com/davids1992/specaugment-quick-implementation
-    """
-    spec = spec.copy()
-
-    for i in range(num_mask):
-        all_frames_num, all_freqs_num = spec.shape
-        freq_percentage = random.uniform(0.0, freq_masking_max_percentage)
-
-        num_freqs_to_mask = int(freq_percentage * all_freqs_num)
-        f0 = np.random.uniform(low=0.0, high=all_freqs_num - num_freqs_to_mask)
-        f0 = int(f0)
-        spec[:, f0:f0 + num_freqs_to_mask] = 0
-
-        time_percentage = random.uniform(0.0, time_masking_max_percentage)
-
-        num_frames_to_mask = int(time_percentage * all_frames_num)
-        t0 = np.random.uniform(low=0.0, high=all_frames_num - num_frames_to_mask)
-        t0 = int(t0)
-        spec[t0:t0 + num_frames_to_mask, :] = 0
-
-    return spec
-
-
-def audio_to_melspectrogram(audio, sr):
-    spectrogram = librosa.feature.melspectrogram(
-        audio,
-        sr=sr,
-        n_mels=N_MEL,           # https://librosa.github.io/librosa/generated/librosa.filters.mel.html#librosa.filters.mel
-        hop_length=HOP_LENGTH,  # to make time steps 128? 恐らくstftのロジックを理解すれば行ける
-        n_fft=N_MEL * 20,       # n_mels * 20
-        fmin=20,                # Filterbank lowest frequency, Audible range 20[Hz]
-        fmax=sr / 2             # Nyquist frequency
-    )
-    spectrogram = librosa.power_to_db(spectrogram)
-    spectrogram = spectrogram.astype(np.float32)
-    return spectrogram
-
-
-def mono_to_color(mono):
-    # stack X as [mono, mono, mono]
-    x = np.stack([mono, mono, mono], axis=-1)
-
-    # Standardize
-    x_std = (x - x.mean()) / (x.std() + 1e-6)
-
-    if (x_std.max() - x_std.min()) > 1e-6:
-        color = 255 * (x_std - x_std.min()) / (x_std.max() - x_std.min())
-        color = color.astype(np.uint8)
-    else:
-        color = np.zeros_like(x_std, dtype=np.uint8)
-
-    return color
-# << audio convert section
+    return train_df[["fpath", "labels", "fold"]]
+# << data select section
 
 
 # >> label convert section
 @jit("i1[:](i1[:])")
 def label_to_array(label):
-    tag_list = pd.read_csv(ROOT_PATH / "input" / "{}.csv".format(SAMPLE_SUBMISSION)).columns[1:].tolist()  # 80 tag list
+    tag_list = pd.read_csv(ROOT_PATH / "input" / "sample_submission.csv").columns[1:].tolist()  # 80 tag list
     array = np.zeros(len(tag_list)).astype(int)
     for tag in label.split(","):
         array[tag_list.index(tag)] = 1
@@ -235,21 +121,12 @@ def df_to_labeldata(fpath_arr, labels):
     spec_list = []
     label_list = []
 
-    aug = iaa.Affine(translate_percent={"x": (-0.1, 0.1), "y": (-0.0, 0.0)})
-
     @jit
     def calc(fpath_arr, labels):
-        for idx in range(len(fpath_arr)):
-            mod = int(idx % SPEC_AUGMENTATION_RATE)
+        for idx in tqdm(range(len(fpath_arr))):
             # melspectrogram
-            y, sr = read_audio(fpath_arr[idx])
-            spec_mono = audio_to_melspectrogram(y, sr)
-            if mod != 0:
-                # spec_mono = spec_augment(spec_mono, num_mask=NUM_MASK,
-                #                         freq_masking_max_percentage=FREQ_MASKING_MAX_PERCENTAGE,
-                #                         time_masking_max_percentage=TIME_MASKING_MAX_PERCENTAGE)
-                spec_mono = aug.augment_image(spec_mono)
-            spec_color = mono_to_color(spec_mono)
+            img = Image.open(fpath_arr[idx])
+            spec_color = np.asarray(img)
             spec_list.append(spec_color)
 
             # labels
@@ -273,66 +150,23 @@ class TrainDataset(Dataset):
         return len(self.melspectrograms)
 
     def __getitem__(self, idx):
-        # crop
-        image = Image.fromarray(self.melspectrograms[idx], mode="RGB")
-        time_dim, base_dim = image.size
+        # zero padding by time axis
+        color_spec = self.melspectrograms[idx]
+        (mel_dim, time_dim, channel_dim) = color_spec.shape
+        color_spec = np.pad(color_spec, [(0, 0), (mel_dim, mel_dim), (0, 0)], "constant")
 
-        crop = random.randint(0, time_dim - base_dim)
-        image = image.crop([crop, 0, crop + base_dim, base_dim])
+        # peak crop
+        peak_timing = color_spec.sum(axis=0).sum(axis=1).argmax()
+        peak_timing = max([peak_timing, mel_dim])
+
+        image = Image.fromarray(color_spec, mode="RGB")
+        crop = peak_timing - int(mel_dim / 2)  # (WIP)
+        image = image.crop([crop, 0, crop + mel_dim, mel_dim])
         image = self.transforms(image).div_(255)
 
         label = self.labels[idx]
         label = torch.from_numpy(label).float()
         return image, label
-
-
-def load_testdata(fname):
-    """
-    fname : list
-    """
-    input_dir = ROOT_PATH / "input"
-
-    spec_list = []
-
-    @jit
-    def calc(fname_list):
-        for idx in range(len(fname_list)):
-            # melspectrogram
-            y, sr = read_audio(input_dir / TEST_DIR / fname_list[idx])
-            spec_mono = audio_to_melspectrogram(y, sr)
-            spec_color = mono_to_color(spec_mono)
-            spec_list.append(spec_color)
-
-    calc(fname)
-
-    return spec_list
-
-
-class TestDataset(Dataset):
-    """
-    """
-    def __init__(self, transform, tta=5):
-        super().__init__()
-        self.transforms = transform
-        self.fnames = pd.read_csv(ROOT_PATH / "input" / "{}.csv".format(SAMPLE_SUBMISSION))["fname"].values.tolist()
-        self.melspectrograms = load_testdata(self.fnames)
-        self.tta = tta
-
-    def __len__(self):
-        return len(self.melspectrograms) * self.tta
-
-    def __getitem__(self, idx):
-        new_idx = idx % len(self.fnames)
-
-        # crop
-        image = Image.fromarray(self.melspectrograms[new_idx], mode="RGB")
-        time_dim, base_dim = image.size
-        crop = random.randint(0, time_dim - base_dim)
-        image = image.crop([crop, 0, crop + base_dim, base_dim])
-        image = self.transforms(image).div_(255)
-
-        fname = self.fnames[new_idx]
-        return image, fname
 # << dataset section
 
 
@@ -482,32 +316,34 @@ def calculate_per_class_lwlrap(truth, scores):
 #  train section  #
 # =============== #
 @stop_watch("train section")
-def train_model(train_df, train_transforms):
-    num_classes = len(pd.read_csv(ROOT_PATH / "input" / "{}.csv".format(SAMPLE_SUBMISSION)).columns[1:])
+def train_model(train_df, train_transforms, fold):
+    get_logger().info("[start] >> {} fold".format(fold))
+    num_epochs = 80
+    batch_size = 64
+    test_batch_size = 256
+    lr = 3e-3
+    eta_min = 1e-5
+    t_max = 10
 
-    trn_x, val_x, trn_y, val_y = train_test_split(train_df["fpath"].values, train_df["labels"].values, test_size=0.2, random_state=SEED)
+    num_classes = len(pd.read_csv(ROOT_PATH / "input" / "sample_submission.csv").columns[1:])
 
-    trn_x = pd.DataFrame(trn_x, columns=["fpath"])
-    trn_y = pd.DataFrame(trn_y, columns=["labels"])
-    aug_trn_x = trn_x
-    aug_trn_y = trn_y
-    for i in range(SPEC_AUGMENTATION_RATE - 1):
-        aug_trn_x = pd.concat([aug_trn_x, trn_x])
-        aug_trn_y = pd.concat([aug_trn_y, trn_y])
+    trn_data = train_df.query("fold != {}".format(fold))
+    trn_x = trn_data["fpath"].values
+    trn_y = trn_data["labels"].values
+    val_data = train_df.query("fold == {}".format(fold))
+    val_x = val_data["fpath"].values
+    val_y = val_data["labels"].values
 
-    aug_trn_x.sort_index(ascending=False, inplace=True)
-    aug_trn_y.sort_index(ascending=False, inplace=True)
-
-    train_dataset = TrainDataset(aug_trn_x["fpath"].values.tolist(), aug_trn_y["labels"].values.tolist(), train_transforms)
+    train_dataset = TrainDataset(trn_x, trn_y, train_transforms)
     valid_dataset = TrainDataset(val_x, val_y, train_transforms)
 
-    train_loader = DataLoader(train_dataset, batch_size=train_batch_size, shuffle=True)
-    valid_loader = DataLoader(valid_dataset, batch_size=valid_batch_size, shuffle=False)
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+    valid_loader = DataLoader(valid_dataset, batch_size=test_batch_size, shuffle=False)
 
-    model = Classifier(num_classes=num_classes).to(device)
-    criterion = nn.BCEWithLogitsLoss().to(device)
-    optimizer = Adam(params=model.parameters(), **optimizer_params)
-    scheduler = CosineAnnealingLR(optimizer, **scheduler_params)
+    model = Classifier(num_classes=num_classes).cuda()
+    criterion = nn.BCEWithLogitsLoss().cuda()
+    optimizer = Adam(params=model.parameters(), lr=lr, amsgrad=False)
+    scheduler = CosineAnnealingLR(optimizer, T_max=t_max, eta_min=eta_min)
 
     best_epoch = -1
     best_lwlrap = 0.
@@ -521,8 +357,8 @@ def train_model(train_df, train_transforms):
         avg_loss = 0.
 
         for x_batch, y_batch in progress_bar(train_loader, parent=mb):
-            preds = model(x_batch.to(device))
-            loss = criterion(preds, y_batch.to(device))
+            preds = model(x_batch.cuda())
+            loss = criterion(preds, y_batch.cuda())
 
             optimizer.zero_grad()
             loss.backward()
@@ -536,11 +372,11 @@ def train_model(train_df, train_transforms):
         avg_val_loss = 0.
 
         for i, (x_batch, y_batch) in enumerate(valid_loader):
-            preds = model(x_batch.to(device)).detach()
-            loss = criterion(preds, y_batch.to(device))
+            preds = model(x_batch.cuda()).detach()
+            loss = criterion(preds, y_batch.cuda())
 
             preds = torch.sigmoid(preds)
-            valid_preds[i * valid_batch_size: (i + 1) * valid_batch_size] = preds.cpu().numpy()
+            valid_preds[i * test_batch_size: (i + 1) * test_batch_size] = preds.cpu().numpy()
 
             avg_val_loss += loss.item() / len(valid_loader)
 
@@ -552,51 +388,21 @@ def train_model(train_df, train_transforms):
 
         elapsed = time.time() - start
         get_logger(is_torch=True).debug("{}\t{}\t{}\t{}".format(avg_loss, avg_val_loss, lwlrap, elapsed))
-        if (epoch + 1) % 5 == 0:
+        if (epoch + 1) % 10 == 0:
             mb.write(f"Epoch {epoch + 1} -\tavg_train_loss: {avg_loss:.4f}\tavg_val_loss: {avg_val_loss:.4f}\tval_lwlrap: {lwlrap:.6f}\ttime: {elapsed:.0f}s")
 
         if lwlrap > best_lwlrap:
             best_epoch = epoch + 1
             best_lwlrap = lwlrap
-            model_path = "weight_best.pt" if IS_KERNEL else (ROOT_PATH / "model" / "{}_weight_best.pt".format(VERSION)).resolve()
+            model_path = "weight_best_{}.pt".format(fold) if IS_KERNEL else (ROOT_PATH / "model" / "{}_weight_best_{}.pt".format(VERSION, fold)).resolve()
             torch.save(model.state_dict(), model_path)
 
+    get_logger().info("[ end ] >> {} fold".format(fold))
+    get_logger(is_torch=True).info("")
     return {
         "best_epoch": best_epoch,
         "best_lwlrap": best_lwlrap
     }
-
-
-# ================= #
-#  predict section  #
-# ================= #
-def predict_model(test_transforms, *, tta=5):
-    model_path = "weight_best.pt" if IS_KERNEL else (ROOT_PATH / "model" / "{}_weight_best.pt".format(VERSION)).resolve()
-
-    num_classes = len(pd.read_csv(ROOT_PATH / "input" / "{}.csv".format(SAMPLE_SUBMISSION)).columns[1:])
-
-    test_dataset = TestDataset(test_transforms, tta)
-    test_loader = DataLoader(test_dataset, batch_size=test_batch_size, shuffle=False)
-
-    model = Classifier(num_classes=num_classes)
-    model.load_state_dict(torch.load(model_path))
-    model.to(device)
-    model.eval()
-
-    all_outputs, all_fnames = [], []
-
-    pb = progress_bar(test_loader)
-    for images, fnames in pb:
-        preds = torch.sigmoid(model(images.to(device)).detach())
-        all_outputs.append(preds.cpu().numpy())
-        all_fnames.extend(fnames)
-
-    test_preds = pd.DataFrame(data=np.concatenate(all_outputs),
-                              index=all_fnames,
-                              columns=map(str, range(num_classes)))
-    test_preds = test_preds.groupby(level=0).mean()
-
-    return test_preds
 
 
 # ================ #
@@ -669,22 +475,17 @@ def main():
 
     train_df = select_train_data()
     train_transforms = transforms.Compose([
+        transforms.RandomHorizontalFlip(),
         transforms.ToTensor()
     ])
 
-    result = train_model(train_df, train_transforms)
-    get_logger().info("best_epoch : {},\tbest_lwlrap : {}".format(result["best_epoch"], result["best_lwlrap"]))
+    lwlrap_result = 0
+    for i in range(FOLD_NUM):
+        result = train_model(train_df, train_transforms, i)
+        get_logger().info("[fold {}]best_epoch : {},\tbest_lwlrap : {}".format(i, result["best_epoch"], result["best_lwlrap"]))
+    lwlrap_result += result["best_lwlrap"] / FOLD_NUM
 
-    test_transforms = transforms.Compose([
-        transforms.ToTensor()
-    ])
-    test_preds = predict_model(test_transforms)
-
-    test_df = pd.read_csv(ROOT_PATH / "input" / "{}.csv".format(SAMPLE_SUBMISSION))
-    test_df.iloc[:, 1:] = test_preds.values
-
-    submission_path = "submission.csv" if IS_KERNEL else (ROOT_PATH / "data" / "submission" / "{}.csv".format(VERSION)).resolve()
-    test_df.to_csv(submission_path, index=False)
+    get_logger().info("[result]best_lwlrap : {}".format(lwlrap_result))
 
 
 if __name__ == "__main__":

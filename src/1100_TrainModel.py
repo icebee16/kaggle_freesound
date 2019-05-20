@@ -2,6 +2,7 @@
 # Baseline Model
 # date : 2019/05/05
 # reference : https://www.kaggle.com/mhiro2/simple-2d-cnn-classifier-with-pytorch
+# comment : [change point] peak crop, multi StratifiedKFold
 # ==================================================================================
 
 import gc
@@ -481,10 +482,10 @@ def main():
     lwlrap_result = 0
     for i in range(FOLD_NUM):
         result = train_model(train_df, train_transforms, i)
-        get_logger().info("[fold {}]best_epoch : {},\tbest_lwlrap : {}".format(i, result["best_epoch"], result["best_lwlrap"]))
-    lwlrap_result += result["best_lwlrap"] / FOLD_NUM
+        get_logger().info("[fold {}] best_epoch : {},\tbest_lwlrap : {}".format(i, result["best_epoch"], result["best_lwlrap"]))
+    lwlrap_result += (result["best_lwlrap"] / FOLD_NUM)
 
-    get_logger().info("[result]best_lwlrap : {}".format(lwlrap_result))
+    get_logger().info("[result] best_lwlrap : {}".format(lwlrap_result))
 
 
 if __name__ == "__main__":
