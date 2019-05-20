@@ -2,6 +2,7 @@
 # Baseline Model
 # date : 2019/05/05
 # reference : https://www.kaggle.com/mhiro2/simple-2d-cnn-classifier-with-pytorch
+# comment : [change point] peak crop, multi StratifiedKFold
 # ==================================================================================
 
 import gc
