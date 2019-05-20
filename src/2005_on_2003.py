@@ -12,7 +12,6 @@ from logging import getLogger, Formatter, FileHandler, StreamHandler, INFO, DEBU
 from pathlib import Path
 from psutil import cpu_count
 from functools import wraps, partial
-from tqdm import tqdm
 from fastprogress import master_bar, progress_bar
 
 import numpy as np
@@ -241,7 +240,7 @@ def df_to_labeldata(fpath_arr, labels):
 
     @jit
     def calc(fpath_arr, labels):
-        for idx in tqdm(range(len(fpath_arr))):
+        for idx in range(len(fpath_arr)):
             modulo_idx = int(idx / SPEC_AUGMENTATION_RATE)
             mod = int(idx % SPEC_AUGMENTATION_RATE)
             # melspectrogram
@@ -299,7 +298,7 @@ def load_testdata(fname):
 
     @jit
     def calc(fname_list):
-        for idx in tqdm(range(len(fname_list))):
+        for idx in range(len(fname_list)):
             # melspectrogram
             y, sr = read_audio(input_dir / TEST_DIR / fname_list[idx])
             spec_mono = audio_to_melspectrogram(y, sr)
