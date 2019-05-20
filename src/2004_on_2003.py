@@ -120,19 +120,20 @@ def select_train_data():
     train_curated_df = pd.read_csv(input_dir / "{}.csv".format(CURATED_DIR))
     train_curated_df["fpath"] = str(input_dir.absolute()) + "/" + CURATED_DIR + "/" + train_curated_df["fname"]
 
+    train_df = train_curated_df
     # train noisy
-    train_noisy_df = pd.read_csv(input_dir / "{}.csv".format(NOISY_DIR))
-    single_tag_train_noisy_df = train_noisy_df[~train_noisy_df["labels"].str.contains(",")]
-    train_noisy_df = None
-    for tag in tag_list:  # 80 tags
-        temp_df = single_tag_train_noisy_df.query("labels == '{}'".format(tag)).iloc[:50, :]
-        if train_noisy_df is None:
-            train_noisy_df = temp_df
-        else:
-            train_noisy_df = pd.concat([train_noisy_df, temp_df])
-    train_noisy_df["fpath"] = str(input_dir.absolute()) + "/" + NOISY_DIR + "/" + train_noisy_df["fname"]
-
-    train_df = pd.concat([train_curated_df, train_noisy_df])[["fpath", "labels"]]
+    if IS_KERNEL is False:
+        train_noisy_df = pd.read_csv(input_dir / "{}.csv".format(NOISY_DIR))
+        single_tag_train_noisy_df = train_noisy_df[~train_noisy_df["labels"].str.contains(",")]
+        train_noisy_df = None
+        for tag in tag_list:  # 80 tags
+            temp_df = single_tag_train_noisy_df.query("labels == '{}'".format(tag)).iloc[:50, :]
+            if train_noisy_df is None:
+                train_noisy_df = temp_df
+            else:
+                train_noisy_df = pd.concat([train_noisy_df, temp_df])
+        train_noisy_df["fpath"] = str(input_dir.absolute()) + "/" + NOISY_DIR + "/" + train_noisy_df["fname"]
+        train_df = pd.concat([train_curated_df, train_noisy_df])[["fpath", "labels"]]
     return train_df
     # << data select section
 
@@ -254,7 +255,7 @@ def df_to_labeldata(fpath_arr, labels):
             spec_list.append(spec_color)
 
             # labels
-            label_list.append(label_to_array(labels[idx]))
+            label_list.append(label_to_array(labels[modulo_idx]))
 
     calc(fpath_arr, labels)
 

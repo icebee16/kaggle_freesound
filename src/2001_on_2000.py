@@ -118,7 +118,6 @@ def select_train_data():
     train_curated_df["fpath"] = str(input_dir.absolute()) + "/" + CURATED_DIR + "/" + train_curated_df["fname"]
 
     train_df = train_curated_df
-
     # train noisy
     if IS_KERNEL is False:
         train_noisy_df = pd.read_csv(input_dir / "{}.csv".format(NOISY_DIR))
@@ -250,7 +249,7 @@ def df_to_labeldata(fpath_arr, labels):
             spec_list.append(spec_color)
 
             # labels
-            label_list.append(label_to_array(labels[idx]))
+            label_list.append(label_to_array(labels[modulo_idx]))
 
     calc(fpath_arr, labels)
 
