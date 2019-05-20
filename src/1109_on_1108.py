@@ -2,7 +2,7 @@
 # Baseline Model
 # date : 2019/05/05
 # reference : https://www.kaggle.com/mhiro2/simple-2d-cnn-classifier-with-pytorch
-# comment : [change point] rondom peak crop
+# comment : [change point] add train noisy
 # ==================================================================================
 
 import gc
@@ -91,9 +91,12 @@ def select_train_data():
     train_curated_df["fpath"] = str(img_dir.absolute()) + "/train_curated/" + train_curated_df["fname"].str[:-4] + ".png"
 
     # train noisy
+    train_noisy_df = pd.read_csv(fold_dir / "train_noisy_sfk.csv")
+    train_noisy_df = train_noisy_df[["fname", "labels", "fold"]]
+    train_noisy_df["fpath"] = str(img_dir.absolute()) + "/train_noisy/" + train_noisy_df["fname"].str[:-4] + ".png"
 
     # df concat
-    train_df = train_curated_df
+    train_df = pd.concat([train_curated_df, train_noisy_df])
 
     return train_df[["fpath", "labels", "fold"]]
 # << data select section
