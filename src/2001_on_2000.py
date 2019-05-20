@@ -236,10 +236,9 @@ def df_to_labeldata(fpath_arr, labels):
     @jit
     def calc(fpath_arr, labels):
         for idx in range(len(fpath_arr)):
-            modulo_idx = int(idx / SPEC_AUGMENTATION_RATE)
             mod = int(idx % SPEC_AUGMENTATION_RATE)
             # melspectrogram
-            y, sr = read_audio(fpath_arr[modulo_idx])
+            y, sr = read_audio(fpath_arr[idx])
             spec_mono = audio_to_melspectrogram(y, sr)
             if mod != 0:
                 spec_mono = spec_augment(spec_mono, num_mask=NUM_MASK,
@@ -249,7 +248,7 @@ def df_to_labeldata(fpath_arr, labels):
             spec_list.append(spec_color)
 
             # labels
-            label_list.append(label_to_array(labels[modulo_idx]))
+            label_list.append(label_to_array(labels[idx]))
 
     calc(fpath_arr, labels)
 
@@ -487,7 +486,7 @@ def train_model(train_df, train_transforms):
     trn_y = pd.DataFrame(trn_y, columns=["labels"])
     aug_trn_x = trn_x
     aug_trn_y = trn_y
-    for i in range(SPEC_AUGMENTATION_RATE):
+    for i in range(SPEC_AUGMENTATION_RATE - 1):
         aug_trn_x = pd.concat([aug_trn_x, trn_x])
         aug_trn_y = pd.concat([aug_trn_y, trn_y])
 
