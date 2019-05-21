@@ -44,5 +44,5 @@
 [INFO] 2019-05-20 21:37:17,368 >> 	[ end ] >> 4 fold
 [INFO] 2019-05-20 21:37:17,375 >> 	[Finish] train section: [elapsed_time] 00:39:46
 [INFO] 2019-05-20 21:37:17,375 >> 	[fold 4]best_epoch : 73,	best_lwlrap : 0.6341110941736678
-[INFO] 2019-05-20 21:37:17,376 >> 	[result]best_lwlrap : 0.12682221883473357
+[INFO] 2019-05-20 21:37:17,376 >> 	[result]best_lwlrap : 0.6531012942266152
 [INFO] 2019-05-20 21:37:17,376 >> 	[Finish] main function: [elapsed_time] 03:17:09
