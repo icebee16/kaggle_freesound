@@ -483,7 +483,7 @@ def main():
     for i in range(FOLD_NUM):
         result = train_model(train_df, train_transforms, i)
         get_logger().info("[fold {}]best_epoch : {},\tbest_lwlrap : {}".format(i, result["best_epoch"], result["best_lwlrap"]))
-    lwlrap_result += result["best_lwlrap"] / FOLD_NUM
+        lwlrap_result += result["best_lwlrap"] / FOLD_NUM
 
     get_logger().info("[result]best_lwlrap : {}".format(lwlrap_result))
 
