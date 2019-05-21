@@ -70,7 +70,7 @@ train_batch_size = 128
 valid_batch_size = 256
 test_batch_size = 256
 optimizer_params = {
-    "lr": 3e-3,
+    "lr": 3e-2,
     "amsgrad": False
 }
 scheduler_params = {

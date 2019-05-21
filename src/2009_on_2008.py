@@ -49,7 +49,7 @@ SAMPLING_RATE = 44100  # 44.1[kHz]
 SAMPLE_DURATION = 2  # 2[sec]
 N_MEL = 128  # spectrogram y axis size
 FRAME_PER_SEC = N_MEL
-FFT_WINDOW_SIZE = 40
+FFT_WINDOW_SIZE = 20
 SPEC_AUGMENTATION_RATE = 2
 
 # SPEC_AUGMENTATION
@@ -196,20 +196,15 @@ def audio_to_melspectrogram(audio, sr=SAMPLING_RATE):
     return spectrogram
 
 
-def mono_to_color(mono):
-    # stack X as [mono, mono, mono]
-    x = np.stack([mono, mono, mono], axis=-1)
-
-    # Standardize
-    x_std = (x - x.mean()) / (x.std() + 1e-6)
+def standardize(mono):
+    x_std = (mono - mono.mean()) / (mono.std() + 1e-6)
 
     if (x_std.max() - x_std.min()) > 1e-6:
-        color = 255 * (x_std - x_std.min()) / (x_std.max() - x_std.min())
-        color = color.astype(np.uint8)
+        standardized_mono = 255 * (x_std - x_std.min()) / (x_std.max() - x_std.min())
+        standardized_mono = standardized_mono.astype(np.uint8)
     else:
-        color = np.zeros_like(x_std, dtype=np.uint8)
-
-    return color
+        standardized_mono = np.zeros_like(x_std, dtype=np.uint8)
+    return standardized_mono
 # << audio convert section
 
 
@@ -249,8 +244,8 @@ def df_to_labeldata(fpath_arr, labels):
                 #                         freq_masking_max_percentage=FREQ_MASKING_MAX_PERCENTAGE,
                 #                         time_masking_max_percentage=TIME_MASKING_MAX_PERCENTAGE)
                 spec_mono = aug.augment_image(spec_mono)
-            spec_color = mono_to_color(spec_mono)
-            spec_list.append(spec_color)
+            spec_std = standardize(spec_mono)
+            spec_list.append(spec_std)
 
             # labels
             label_list.append(label_to_array(labels[idx]))
@@ -274,7 +269,7 @@ class TrainDataset(Dataset):
 
     def __getitem__(self, idx):
         # crop
-        image = Image.fromarray(self.melspectrograms[idx], mode="RGB")
+        image = Image.fromarray(self.melspectrograms[idx])
         time_dim, base_dim = image.size
 
         crop = random.randint(0, time_dim - base_dim)
@@ -287,9 +282,6 @@ class TrainDataset(Dataset):
 
 
 def load_testdata(fname):
-    """
-    fname : list
-    """
     input_dir = ROOT_PATH / "input"
 
     spec_list = []
@@ -300,8 +292,8 @@ def load_testdata(fname):
             # melspectrogram
             y, sr = read_audio(input_dir / TEST_DIR / fname_list[idx])
             spec_mono = audio_to_melspectrogram(y, sr)
-            spec_color = mono_to_color(spec_mono)
-            spec_list.append(spec_color)
+            spec_std = standardize(spec_mono)
+            spec_list.append(spec_std)
 
     calc(fname)
 
@@ -309,8 +301,6 @@ def load_testdata(fname):
 
 
 class TestDataset(Dataset):
-    """
-    """
     def __init__(self, transform, tta=5):
         super().__init__()
         self.transforms = transform
@@ -325,7 +315,7 @@ class TestDataset(Dataset):
         new_idx = idx % len(self.fnames)
 
         # crop
-        image = Image.fromarray(self.melspectrograms[new_idx], mode="RGB")
+        image = Image.fromarray(self.melspectrograms[new_idx])
         time_dim, base_dim = image.size
         crop = random.randint(0, time_dim - base_dim)
         image = image.crop([crop, 0, crop + base_dim, base_dim])
@@ -344,12 +334,12 @@ class ConvBlock(nn.Module):
         super().__init__()
 
         self.conv1 = nn.Sequential(
-            nn.Conv2d(in_channels, out_channels, 3, 1, 1),
+            nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=1, padding=1),
             nn.BatchNorm2d(out_channels),
             nn.ReLU()
         )
         self.conv2 = nn.Sequential(
-            nn.Conv2d(out_channels, out_channels, 3, 1, 1),
+            nn.Conv2d(out_channels, out_channels, kernel_size=3, stride=1, padding=1),
             nn.BatchNorm2d(out_channels),
             nn.ReLU()
         )
@@ -378,7 +368,7 @@ class Classifier(nn.Module):
         super().__init__()
 
         self.conv = nn.Sequential(
-            ConvBlock(in_channels=3, out_channels=64),
+            ConvBlock(in_channels=1, out_channels=64),
             ConvBlock(in_channels=64, out_channels=128),
             ConvBlock(in_channels=128, out_channels=256),
             ConvBlock(in_channels=256, out_channels=512),
@@ -394,10 +384,16 @@ class Classifier(nn.Module):
         )
 
     def forward(self, x):
+        print()
+        print(x.size())
         x = self.conv(x)
-        x = torch.mean(x, dim=3)
+        print(x.size())
+        x = torch.mean(x, dim=1)
+        print(x.size())
         x, _ = torch.max(x, dim=2)
+        print(x.size())
         x = self.fc(x)
+        print(x.size())
         return x
 
 
