@@ -36,6 +36,7 @@ from imgaug import augmenters as iaa
 # ================= #
 #  paramas section  #
 # ================= #
+DEBUG_MODE = True
 IS_KERNEL = False
 VERSION = "0000" if IS_KERNEL else os.path.basename(__file__)[0:4]
 ROOT_PATH = Path("..") if IS_KERNEL else Path(__file__).parents[1]
@@ -46,18 +47,17 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 SEED = 1129
 SAMPLING_RATE = 44100  # 44.1[kHz]
 SAMPLE_DURATION = 2  # 2[sec]
-HOP_LENGTH = 345
 N_MEL = 128  # spectrogram y axis size
-SPEC_AUGMENTATION_RATE = 3
+FRAME_PER_SEC = N_MEL
+FFT_WINDOW_SIZE = 20
+SPEC_AUGMENTATION_RATE = 2
 
 # SPEC_AUGMENTATION
 NUM_MASK = 2
 FREQ_MASKING_MAX_PERCENTAGE = 0.15
 TIME_MASKING_MAX_PERCENTAGE = 0.30
 
-
 # Directory
-DEBUG_MODE = False
 HEAD = "debug_" if DEBUG_MODE else ""
 CURATED_DIR = HEAD + "train_curated"
 NOISY_DIR = HEAD + "train_noisy"
@@ -119,8 +119,8 @@ def select_train_data():
     train_curated_df = pd.read_csv(input_dir / "{}.csv".format(CURATED_DIR))
     train_curated_df["fpath"] = str(input_dir.absolute()) + "/" + CURATED_DIR + "/" + train_curated_df["fname"]
 
-    # train noisy
     train_df = train_curated_df
+    # train noisy
     if IS_KERNEL is False:
         train_noisy_df = pd.read_csv(input_dir / "{}.csv".format(NOISY_DIR))
         single_tag_train_noisy_df = train_noisy_df[~train_noisy_df["labels"].str.contains(",")]
@@ -133,7 +133,6 @@ def select_train_data():
                 train_noisy_df = pd.concat([train_noisy_df, temp_df])
         train_noisy_df["fpath"] = str(input_dir.absolute()) + "/" + NOISY_DIR + "/" + train_noisy_df["fname"]
         train_df = pd.concat([train_curated_df, train_noisy_df])[["fpath", "labels"]]
-
     return train_df
     # << data select section
 
@@ -182,13 +181,13 @@ def spec_augment(spec: np.ndarray, num_mask=2,
     return spec
 
 
-def audio_to_melspectrogram(audio, sr):
+def audio_to_melspectrogram(audio, sr=SAMPLING_RATE):
     spectrogram = librosa.feature.melspectrogram(
         audio,
         sr=sr,
         n_mels=N_MEL,           # https://librosa.github.io/librosa/generated/librosa.filters.mel.html#librosa.filters.mel
-        hop_length=HOP_LENGTH,  # to make time steps 128? 恐らくstftのロジックを理解すれば行ける
-        n_fft=N_MEL * 20,       # n_mels * 20
+        hop_length=int(sr / FRAME_PER_SEC),  # to make time steps 128? 恐らくstftのロジックを理解すれば行ける
+        n_fft=int((FFT_WINDOW_SIZE / 1000) * sr),
         fmin=20,                # Filterbank lowest frequency, Audible range 20[Hz]
         fmax=sr / 2             # Nyquist frequency
     )
@@ -236,12 +235,12 @@ def df_to_labeldata(fpath_arr, labels):
     spec_list = []
     label_list = []
 
-    aug = iaa.CoarseDropout(0.12, size_percent=0.05)
+    aug = iaa.ContrastNormalization((0.9, 1.1))
 
     @jit
     def calc(fpath_arr, labels):
         for idx in range(len(fpath_arr)):
-            mod = idx % SPEC_AUGMENTATION_RATE
+            mod = int(idx % SPEC_AUGMENTATION_RATE)
             # melspectrogram
             y, sr = read_audio(fpath_arr[idx])
             spec_mono = audio_to_melspectrogram(y, sr)
@@ -252,6 +251,7 @@ def df_to_labeldata(fpath_arr, labels):
                 spec_mono = aug.augment_image(spec_mono)
             spec_color = mono_to_color(spec_mono)
             spec_list.append(spec_color)
+
             # labels
             label_list.append(label_to_array(labels[idx]))
 
