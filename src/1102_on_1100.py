@@ -2,7 +2,7 @@
 # Baseline Model
 # date : 2019/05/05
 # reference : https://www.kaggle.com/mhiro2/simple-2d-cnn-classifier-with-pytorch
-# comment : [change point] peak crop, multi StratifiedKFold
+# comment : [change point] IMAGE_VERSION {1000 > 1002}
 # ==================================================================================
 
 import gc
@@ -37,7 +37,7 @@ from torchvision.transforms import transforms
 # IS_KERNEL = True
 IS_KERNEL = False
 VERSION = "0000" if IS_KERNEL else os.path.basename(__file__)[0:4]
-IMAGE_VERSION = "1000"
+IMAGE_VERSION = "1002"
 FOLD_NUM = 5
 ROOT_PATH = Path("..") if IS_KERNEL else Path(__file__).parents[1]
 DataLoader = partial(DataLoader, num_workers=cpu_count())
@@ -482,10 +482,10 @@ def main():
     lwlrap_result = 0
     for i in range(FOLD_NUM):
         result = train_model(train_df, train_transforms, i)
-        get_logger().info("[fold {}] best_epoch : {},\tbest_lwlrap : {}".format(i, result["best_epoch"], result["best_lwlrap"]))
-    lwlrap_result += (result["best_lwlrap"] / FOLD_NUM)
+        get_logger().info("[fold {}]best_epoch : {},\tbest_lwlrap : {}".format(i, result["best_epoch"], result["best_lwlrap"]))
+    lwlrap_result += result["best_lwlrap"] / FOLD_NUM
 
-    get_logger().info("[result] best_lwlrap : {}".format(lwlrap_result))
+    get_logger().info("[result]best_lwlrap : {}".format(lwlrap_result))
 
 
 if __name__ == "__main__":

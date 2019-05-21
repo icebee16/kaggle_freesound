@@ -1,0 +1,48 @@
+[INFO] 2019-05-20 11:13:11,833 >> 	[Start] main function
+[INFO] 2019-05-20 11:13:12,065 >> 	[Start] train section
+[INFO] 2019-05-20 11:13:12,065 >> 	[start] >> 0 fold
+[INFO] 2019-05-20 11:13:12,098 >> 	[Start] load train image
+[INFO] 2019-05-20 11:14:17,551 >> 	[Finish] load train image: [elapsed_time] 00:01:05
+[INFO] 2019-05-20 11:14:17,551 >> 	[Start] load train image
+[INFO] 2019-05-20 11:14:32,965 >> 	[Finish] load train image: [elapsed_time] 00:00:15
+[INFO] 2019-05-20 11:52:10,327 >> 	[ end ] >> 0 fold
+[INFO] 2019-05-20 11:52:10,328 >> 	[Finish] train section: [elapsed_time] 00:38:58
+[INFO] 2019-05-20 11:52:10,328 >> 	[fold 0]best_epoch : 72,	best_lwlrap : 0.7595380792665462
+[INFO] 2019-05-20 11:52:10,328 >> 	[Start] train section
+[INFO] 2019-05-20 11:52:10,328 >> 	[start] >> 1 fold
+[INFO] 2019-05-20 11:52:10,347 >> 	[Start] load train image
+[INFO] 2019-05-20 11:53:12,061 >> 	[Finish] load train image: [elapsed_time] 00:01:01
+[INFO] 2019-05-20 11:53:12,061 >> 	[Start] load train image
+[INFO] 2019-05-20 11:53:27,577 >> 	[Finish] load train image: [elapsed_time] 00:00:15
+[INFO] 2019-05-20 12:31:05,652 >> 	[ end ] >> 1 fold
+[INFO] 2019-05-20 12:31:05,652 >> 	[Finish] train section: [elapsed_time] 00:38:55
+[INFO] 2019-05-20 12:31:05,652 >> 	[fold 1]best_epoch : 72,	best_lwlrap : 0.7404090321953292
+[INFO] 2019-05-20 12:31:05,652 >> 	[Start] train section
+[INFO] 2019-05-20 12:31:05,652 >> 	[start] >> 2 fold
+[INFO] 2019-05-20 12:31:05,669 >> 	[Start] load train image
+[INFO] 2019-05-20 12:32:07,985 >> 	[Finish] load train image: [elapsed_time] 00:01:02
+[INFO] 2019-05-20 12:32:07,985 >> 	[Start] load train image
+[INFO] 2019-05-20 12:32:24,102 >> 	[Finish] load train image: [elapsed_time] 00:00:16
+[INFO] 2019-05-20 13:10:33,497 >> 	[ end ] >> 2 fold
+[INFO] 2019-05-20 13:10:33,497 >> 	[Finish] train section: [elapsed_time] 00:39:27
+[INFO] 2019-05-20 13:10:33,498 >> 	[fold 2]best_epoch : 72,	best_lwlrap : 0.7300696063223422
+[INFO] 2019-05-20 13:10:33,498 >> 	[Start] train section
+[INFO] 2019-05-20 13:10:33,498 >> 	[start] >> 3 fold
+[INFO] 2019-05-20 13:10:33,515 >> 	[Start] load train image
+[INFO] 2019-05-20 13:11:37,576 >> 	[Finish] load train image: [elapsed_time] 00:01:04
+[INFO] 2019-05-20 13:11:37,576 >> 	[Start] load train image
+[INFO] 2019-05-20 13:11:53,547 >> 	[Finish] load train image: [elapsed_time] 00:00:15
+[INFO] 2019-05-20 13:50:05,948 >> 	[ end ] >> 3 fold
+[INFO] 2019-05-20 13:50:05,949 >> 	[Finish] train section: [elapsed_time] 00:39:32
+[INFO] 2019-05-20 13:50:05,949 >> 	[fold 3]best_epoch : 71,	best_lwlrap : 0.7248767072269551
+[INFO] 2019-05-20 13:50:05,949 >> 	[Start] train section
+[INFO] 2019-05-20 13:50:05,949 >> 	[start] >> 4 fold
+[INFO] 2019-05-20 13:50:05,969 >> 	[Start] load train image
+[INFO] 2019-05-20 13:51:10,928 >> 	[Finish] load train image: [elapsed_time] 00:01:04
+[INFO] 2019-05-20 13:51:10,928 >> 	[Start] load train image
+[INFO] 2019-05-20 13:51:27,173 >> 	[Finish] load train image: [elapsed_time] 00:00:16
+[INFO] 2019-05-20 14:29:51,697 >> 	[ end ] >> 4 fold
+[INFO] 2019-05-20 14:29:51,703 >> 	[Finish] train section: [elapsed_time] 00:39:45
+[INFO] 2019-05-20 14:29:51,703 >> 	[fold 4]best_epoch : 72,	best_lwlrap : 0.7618209845891117
+[INFO] 2019-05-20 14:29:51,703 >> 	[result]best_lwlrap : 0.7433428819200569
+[INFO] 2019-05-20 14:29:51,703 >> 	[Finish] main function: [elapsed_time] 03:16:39

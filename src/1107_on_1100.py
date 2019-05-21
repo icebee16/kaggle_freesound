@@ -2,7 +2,7 @@
 # Baseline Model
 # date : 2019/05/05
 # reference : https://www.kaggle.com/mhiro2/simple-2d-cnn-classifier-with-pytorch
-# comment : [change point] peak crop, multi StratifiedKFold
+# comment : [change point] remove "peak crop"
 # ==================================================================================
 
 import gc
@@ -150,18 +150,11 @@ class TrainDataset(Dataset):
         return len(self.melspectrograms)
 
     def __getitem__(self, idx):
-        # zero padding by time axis
-        color_spec = self.melspectrograms[idx]
-        (mel_dim, time_dim, channel_dim) = color_spec.shape
-        color_spec = np.pad(color_spec, [(0, 0), (mel_dim, mel_dim), (0, 0)], "constant")
-
-        # peak crop
-        peak_timing = color_spec.sum(axis=0).sum(axis=1).argmax()
-        peak_timing = max([peak_timing, mel_dim])
-
-        image = Image.fromarray(color_spec, mode="RGB")
-        crop = peak_timing - int(mel_dim / 2)  # (WIP)
-        image = image.crop([crop, 0, crop + mel_dim, mel_dim])
+        # crop
+        image = Image.fromarray(self.melspectrograms[idx], mode="RGB")
+        time_dim, base_dim = image.size
+        crop = random.randint(0, time_dim - base_dim)
+        image = image.crop([crop, 0, crop + base_dim, base_dim])
         image = self.transforms(image).div_(255)
 
         label = self.labels[idx]
@@ -482,10 +475,10 @@ def main():
     lwlrap_result = 0
     for i in range(FOLD_NUM):
         result = train_model(train_df, train_transforms, i)
-        get_logger().info("[fold {}] best_epoch : {},\tbest_lwlrap : {}".format(i, result["best_epoch"], result["best_lwlrap"]))
-    lwlrap_result += (result["best_lwlrap"] / FOLD_NUM)
+        get_logger().info("[fold {}]best_epoch : {},\tbest_lwlrap : {}".format(i, result["best_epoch"], result["best_lwlrap"]))
+    lwlrap_result += result["best_lwlrap"] / FOLD_NUM
 
-    get_logger().info("[result] best_lwlrap : {}".format(lwlrap_result))
+    get_logger().info("[result]best_lwlrap : {}".format(lwlrap_result))
 
 
 if __name__ == "__main__":

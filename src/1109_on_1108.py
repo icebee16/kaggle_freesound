@@ -2,7 +2,7 @@
 # Baseline Model
 # date : 2019/05/05
 # reference : https://www.kaggle.com/mhiro2/simple-2d-cnn-classifier-with-pytorch
-# comment : [change point] peak crop, multi StratifiedKFold
+# comment : [change point] add train noisy
 # ==================================================================================
 
 import gc
@@ -37,7 +37,7 @@ from torchvision.transforms import transforms
 # IS_KERNEL = True
 IS_KERNEL = False
 VERSION = "0000" if IS_KERNEL else os.path.basename(__file__)[0:4]
-IMAGE_VERSION = "1000"
+IMAGE_VERSION = "1003"
 FOLD_NUM = 5
 ROOT_PATH = Path("..") if IS_KERNEL else Path(__file__).parents[1]
 DataLoader = partial(DataLoader, num_workers=cpu_count())
@@ -91,9 +91,12 @@ def select_train_data():
     train_curated_df["fpath"] = str(img_dir.absolute()) + "/train_curated/" + train_curated_df["fname"].str[:-4] + ".png"
 
     # train noisy
+    train_noisy_df = pd.read_csv(fold_dir / "train_noisy_sfk.csv")
+    train_noisy_df = train_noisy_df[["fname", "labels", "fold"]]
+    train_noisy_df["fpath"] = str(img_dir.absolute()) + "/train_noisy/" + train_noisy_df["fname"].str[:-4] + ".png"
 
     # df concat
-    train_df = train_curated_df
+    train_df = pd.concat([train_curated_df, train_noisy_df])
 
     return train_df[["fpath", "labels", "fold"]]
 # << data select section
@@ -155,12 +158,12 @@ class TrainDataset(Dataset):
         (mel_dim, time_dim, channel_dim) = color_spec.shape
         color_spec = np.pad(color_spec, [(0, 0), (mel_dim, mel_dim), (0, 0)], "constant")
 
-        # peak crop
+        # random peak crop
         peak_timing = color_spec.sum(axis=0).sum(axis=1).argmax()
         peak_timing = max([peak_timing, mel_dim])
 
         image = Image.fromarray(color_spec, mode="RGB")
-        crop = peak_timing - int(mel_dim / 2)  # (WIP)
+        crop = peak_timing - int(mel_dim / 2) + random.randint(0, mel_dim)
         image = image.crop([crop, 0, crop + mel_dim, mel_dim])
         image = self.transforms(image).div_(255)
 
@@ -482,10 +485,10 @@ def main():
     lwlrap_result = 0
     for i in range(FOLD_NUM):
         result = train_model(train_df, train_transforms, i)
-        get_logger().info("[fold {}] best_epoch : {},\tbest_lwlrap : {}".format(i, result["best_epoch"], result["best_lwlrap"]))
-    lwlrap_result += (result["best_lwlrap"] / FOLD_NUM)
+        get_logger().info("[fold {}]best_epoch : {},\tbest_lwlrap : {}".format(i, result["best_epoch"], result["best_lwlrap"]))
+    lwlrap_result += result["best_lwlrap"] / FOLD_NUM
 
-    get_logger().info("[result] best_lwlrap : {}".format(lwlrap_result))
+    get_logger().info("[result]best_lwlrap : {}".format(lwlrap_result))
 
 
 if __name__ == "__main__":
