@@ -1,6 +1,9 @@
-[INFO] 2019-05-20 00:56:22,862 >> 	[Start] main function
-[INFO] 2019-05-20 00:56:23,006 >> 	[Start] train section
-[INFO] 2019-05-20 00:56:23,013 >> 	[Start] load train image
-[INFO] 2019-05-20 00:56:26,452 >> 	[Finish] load train image: [elapsed_time] 00:00:03
-[INFO] 2019-05-20 00:56:26,452 >> 	[Start] load train image
-[INFO] 2019-05-20 00:56:26,760 >> 	[Finish] load train image: [elapsed_time] 00:00:00
+[INFO] 2019-05-21 08:27:48,586 >> 	[Start] main function
+[INFO] 2019-05-21 08:27:48,725 >> 	[Start] train section
+[INFO] 2019-05-21 08:27:48,731 >> 	[Start] load train image
+[INFO] 2019-05-21 08:27:50,672 >> 	[Finish] load train image: [elapsed_time] 00:00:01
+[INFO] 2019-05-21 08:27:50,672 >> 	[Start] load train image
+[INFO] 2019-05-21 08:27:51,000 >> 	[Finish] load train image: [elapsed_time] 00:00:00
+[INFO] 2019-05-21 08:28:38,752 >> 	[Finish] train section: [elapsed_time] 00:00:50
+[INFO] 2019-05-21 08:28:38,753 >> 	best_epoch : 3,	best_lwlrap : 0.2969642857142857
+[INFO] 2019-05-21 08:28:45,997 >> 	[Finish] main function: [elapsed_time] 00:00:57
