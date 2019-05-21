@@ -36,6 +36,7 @@ from imgaug import augmenters as iaa
 # ================= #
 #  paramas section  #
 # ================= #
+DEBUG_MODE = True
 IS_KERNEL = False
 VERSION = "0000" if IS_KERNEL else os.path.basename(__file__)[0:4]
 ROOT_PATH = Path("..") if IS_KERNEL else Path(__file__).parents[1]
@@ -46,8 +47,9 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 SEED = 1129
 SAMPLING_RATE = 44100  # 44.1[kHz]
 SAMPLE_DURATION = 2  # 2[sec]
-HOP_LENGTH = 345
 N_MEL = 128  # spectrogram y axis size
+FRAME_PER_SEC = N_MEL
+FFT_WINDOW_SIZE = 20
 SPEC_AUGMENTATION_RATE = 2
 
 # SPEC_AUGMENTATION
@@ -55,9 +57,7 @@ NUM_MASK = 2
 FREQ_MASKING_MAX_PERCENTAGE = 0.15
 TIME_MASKING_MAX_PERCENTAGE = 0.30
 
-
 # Directory
-DEBUG_MODE = True
 HEAD = "debug_" if DEBUG_MODE else ""
 CURATED_DIR = HEAD + "train_curated"
 NOISY_DIR = HEAD + "train_noisy"
@@ -181,13 +181,13 @@ def spec_augment(spec: np.ndarray, num_mask=2,
     return spec
 
 
-def audio_to_melspectrogram(audio, sr):
+def audio_to_melspectrogram(audio, sr=SAMPLING_RATE):
     spectrogram = librosa.feature.melspectrogram(
         audio,
         sr=sr,
         n_mels=N_MEL,           # https://librosa.github.io/librosa/generated/librosa.filters.mel.html#librosa.filters.mel
-        hop_length=HOP_LENGTH,  # to make time steps 128? 恐らくstftのロジックを理解すれば行ける
-        n_fft=N_MEL * 20,       # n_mels * 20
+        hop_length=int(sr / FRAME_PER_SEC),  # to make time steps 128? 恐らくstftのロジックを理解すれば行ける
+        n_fft=int((FFT_WINDOW_SIZE / 1000) * sr),
         fmin=20,                # Filterbank lowest frequency, Audible range 20[Hz]
         fmax=sr / 2             # Nyquist frequency
     )
