@@ -1,0 +1,9 @@
+[INFO] 2019-05-22 00:13:14,090 >> 	[Start] main function
+[INFO] 2019-05-22 00:13:14,249 >> 	[Start] train section
+[INFO] 2019-05-22 00:13:14,256 >> 	[Start] load train image
+[INFO] 2019-05-22 00:13:15,574 >> 	[Finish] load train image: [elapsed_time] 00:00:01
+[INFO] 2019-05-22 00:13:15,574 >> 	[Start] load train image
+[INFO] 2019-05-22 00:13:15,861 >> 	[Finish] load train image: [elapsed_time] 00:00:00
+[ERROR] 2019-05-22 00:13:19,291 >> 	Exception Occured. 
+>> 
+ size mismatch, m1: [24 x 8], m2: [512 x 128] at /Users/soumith/b101/2019_02_04/wheel_build_dirs/wheel_3.7/pytorch/aten/src/TH/generic/THTensorMath.cpp:940

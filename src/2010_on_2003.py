@@ -51,6 +51,7 @@ N_MEL = 128  # spectrogram y axis size
 FRAME_PER_SEC = N_MEL
 FFT_WINDOW_SIZE = 40
 SPEC_AUGMENTATION_RATE = 2
+VERBOSE = 1
 
 # SPEC_AUGMENTATION
 NUM_MASK = 2
@@ -552,7 +553,7 @@ def train_model(train_df, train_transforms):
 
         elapsed = time.time() - start
         get_logger(is_torch=True).debug("{}\t{}\t{}\t{}".format(avg_loss, avg_val_loss, lwlrap, elapsed))
-        if (epoch + 1) % 5 == 0:
+        if (epoch + 1) % VERBOSE == 0:
             mb.write(f"Epoch {epoch + 1} -\tavg_train_loss: {avg_loss:.4f}\tavg_val_loss: {avg_val_loss:.4f}\tval_lwlrap: {lwlrap:.6f}\ttime: {elapsed:.0f}s")
 
         if lwlrap > best_lwlrap:
