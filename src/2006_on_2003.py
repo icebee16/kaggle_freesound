@@ -65,7 +65,7 @@ TEST_DIR = HEAD + "test"
 SAMPLE_SUBMISSION = HEAD + "sample_submission"
 
 # Training params
-num_epochs = 5
+num_epochs = 80
 train_batch_size = 128
 valid_batch_size = 256
 test_batch_size = 256
